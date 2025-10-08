@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  redis:
+  rabbitmq:
+  elasticsearch:
+  api-gateway:
+  scheduler-service:
+  worker-service: # Can scale to multiple instances
+  websocket-service:
+  frontend:
