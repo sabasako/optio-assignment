@@ -1,0 +1,20 @@
+### Create job
+POST http://localhost:3000/api/processing/start
+Content-Type: application/json
+
+{
+  "totalRecords": 99,
+  "recordsPerMinute": 1
+}
+
+
+### Update job config
+PATCH http://localhost:3000/api/processing/da610d58-83e4-480b-9e05-3db6761d4816/config
+Content-Type: application/json
+
+{
+  "recordsPerMinute": 500
+}
+
+### Check job status
+GET http://localhost:3000/api/processing/:jobId/status

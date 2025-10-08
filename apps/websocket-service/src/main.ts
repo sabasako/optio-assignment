@@ -3,6 +3,8 @@ import { WebsocketServiceModule } from './websocket-service.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(WebsocketServiceModule);
-  await app.listen(process.env.port ?? 3000);
+  const port = process.env.PORT || 3003;
+  await app.listen(port);
+  console.log(`WebSocket Service is running on: http://localhost:${port}`);
 }
 bootstrap();

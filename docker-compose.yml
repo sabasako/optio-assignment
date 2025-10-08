@@ -1,10 +1,175 @@
-version: '3.8'
 services:
+  # Infrastructure Services
   redis:
+    image: redis:7-alpine
+    container_name: optio-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - optio-network
+
   rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: optio-rabbitmq
+    ports:
+      - '5672:5672' # AMQP port
+      - '15672:15672' # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-admin}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - optio-network
+
   elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: optio-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'curl -f http://localhost:9200/_cluster/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - optio-network
+
+  # Application Services
   api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: api-gateway
+    container_name: optio-api-gateway
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-admin}
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+      - WEBSOCKET_URL=${WEBSOCKET_URL:-http://websocket-service:3003}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - optio-network
+    restart: unless-stopped
+
   scheduler-service:
-  worker-service: # Can scale to multiple instances
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: scheduler-service
+    container_name: optio-scheduler-service
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-admin}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - optio-network
+    restart: unless-stopped
+
+  worker-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: worker-service
+    ports:
+      - '3002-3010:3002' # Support for multiple instances
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3002
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-admin}
+      - ELASTICSEARCH_NODE=http://elasticsearch:9200
+      - WEBSOCKET_URL=${WEBSOCKET_URL:-http://websocket-service:3003}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - optio-network
+    restart: unless-stopped
+    deploy:
+      replicas: ${WORKER_REPLICAS:-2}
+
   websocket-service:
-  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: websocket-service
+    container_name: optio-websocket-service
+    ports:
+      - '3003:3003'
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:4200}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - optio-network
+    restart: unless-stopped
+
+networks:
+  optio-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  rabbitmq-data:
+  elasticsearch-data:
