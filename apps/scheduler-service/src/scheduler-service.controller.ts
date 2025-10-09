@@ -1,12 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Logger } from '@nestjs/common';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { SchedulerServiceService } from './scheduler-service.service';
+import { JobCreatedDto, JobUpdatedDto } from './dto';
 
 @Controller()
 export class SchedulerServiceController {
-  constructor(private readonly schedulerServiceService: SchedulerServiceService) {}
+  private readonly logger = new Logger(SchedulerServiceController.name);
 
-  @Get()
-  getHello(): string {
-    return this.schedulerServiceService.getHello();
+  constructor(
+    private readonly schedulerServiceService: SchedulerServiceService,
+  ) {}
+
+  @EventPattern('job.create')
+  async handleJobCreate(@Payload() data: JobCreatedDto) {
+    this.logger.log(`Received job.create event for job ${data.jobId}`);
+    await this.schedulerServiceService.handleJobCreated(data);
+  }
+
+  @EventPattern('job.update')
+  async handleJobUpdate(@Payload() data: JobUpdatedDto) {
+    this.logger.log(`Received job.update event for job ${data.jobId}`);
+    await this.schedulerServiceService.handleJobUpdated(data);
   }
 }

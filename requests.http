@@ -3,8 +3,8 @@ POST http://localhost:3000/api/processing/start
 Content-Type: application/json
 
 {
-  "totalRecords": 99,
-  "recordsPerMinute": 1
+  "totalRecords": 30,
+  "recordsPerMinute": 30
 }
 
 
