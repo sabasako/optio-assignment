@@ -18,8 +18,8 @@ export class RecordPublisherService implements OnModuleInit {
     this.logger.log('RecordPublisher initialized and connected to RabbitMQ');
   }
 
-  // Check every second
-  @Interval(1000)
+  // Check every 100ms
+  @Interval(100)
   async checkAndPublishRecords() {
     if (this.isRunning) {
       return;

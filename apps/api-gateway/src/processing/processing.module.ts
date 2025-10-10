@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ProcessingService } from './processing.service';
 import { ProcessingController } from './processing.controller';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
+    RedisModule,
     ClientsModule.register([
       {
         name: 'RABBITMQ_SERVICE',

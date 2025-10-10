@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { randomUUID } from 'crypto';
 import { CreateJobDto, UpdateJobConfigDto } from './dto';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class ProcessingService {
@@ -9,6 +10,7 @@ export class ProcessingService {
 
   constructor(
     @Inject('RABBITMQ_SERVICE') private readonly rabbitClient: ClientProxy,
+    private readonly redisService: RedisService,
   ) {}
 
   async createJob(createJobDto: CreateJobDto) {
@@ -77,12 +79,19 @@ export class ProcessingService {
   }
 
   async getJobStatus(jobId: string) {
-    // Not implemented for now, later it will query Redis or Elasticsearch
     this.logger.log(`Getting status for job ${jobId}`);
 
-    return {
-      jobId,
-      status: 'pending',
-    };
+    try {
+      const jobStatus = await this.redisService.getJobStatus(jobId);
+
+      if (jobStatus.status === 'not_found') {
+        this.logger.warn(`Job ${jobId} not found in Redis`);
+      }
+
+      return jobStatus;
+    } catch (error) {
+      this.logger.error(`Failed to get status for job ${jobId}`, error);
+      throw error;
+    }
   }
 }
