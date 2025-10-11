@@ -1,7 +1,7 @@
 import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { Interval } from '@nestjs/schedule';
-import { RedisService } from './redis/redis.service';
+import { RedisService } from '@app/common';
 
 @Injectable()
 export class RecordPublisherService implements OnModuleInit {
@@ -71,28 +71,18 @@ export class RecordPublisherService implements OnModuleInit {
 
       this.rabbitClient.emit('record.process', message);
 
-      // Update record status
+      // Update record status to 'sent'
       await this.redisService.updateRecordStatus(jobId, recordId, 'sent');
 
       // Remove from scheduled queue
       await this.redisService.removeFromScheduledQueue(jobId, recordId);
 
-      // Increment processed count
-      const processedCount =
-        await this.redisService.incrementProcessedCount(jobId);
-
+      // Log successful publish
+      // Note: We do NOT increment processedCount here because that should only happen
+      // when the worker actually processes the record. This prevents double-counting.
       this.logger.log(
-        `Published record ${recordId} for job ${jobId} (${processedCount} sent)`,
+        `Published record ${recordId} for job ${jobId} to RabbitMQ`,
       );
-
-      // Check if job is completed
-      const jobConfig = await this.redisService.getJobConfig(jobId);
-      if (jobConfig && processedCount >= jobConfig.totalRecords) {
-        await this.redisService.updateJobConfig(jobId, {
-          status: 'completed',
-        });
-        this.logger.log(`Job ${jobId} completed - all records sent`);
-      }
     } catch (error) {
       this.logger.error(
         `Error publishing record ${jobId}:${recordId} - ${error.message}`,

@@ -7,6 +7,7 @@ if (typeof global.crypto === 'undefined') {
 import { NestFactory } from '@nestjs/core';
 import { Transport, MicroserviceOptions } from '@nestjs/microservices';
 import { SchedulerServiceModule } from './scheduler-service.module';
+import { RABBITMQ_URL } from 'libs/constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(SchedulerServiceModule);
@@ -14,10 +15,7 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
-      urls: [
-        process.env.RABBITMQ_URL ||
-          `amqp://${process.env.RABBITMQ_USER || 'admin'}:${process.env.RABBITMQ_PASS || 'admin'}@${process.env.RABBITMQ_HOST || 'localhost'}:${process.env.RABBITMQ_PORT || '5672'}`,
-      ],
+      urls: [RABBITMQ_URL],
       queue: 'job_queue',
       queueOptions: {
         durable: true,

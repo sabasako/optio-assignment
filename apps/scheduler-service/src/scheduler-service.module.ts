@@ -4,7 +4,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SchedulerServiceController } from './scheduler-service.controller';
 import { SchedulerServiceService } from './scheduler-service.service';
 import { RecordPublisherService } from './record-publisher.service';
-import { RedisModule } from './redis/redis.module';
+import { RedisModule } from '@app/common';
+import { RABBITMQ_URL } from 'libs/constants';
 
 @Module({
   imports: [
@@ -15,10 +16,7 @@ import { RedisModule } from './redis/redis.module';
         name: 'RABBITMQ_SERVICE',
         transport: Transport.RMQ,
         options: {
-          urls: [
-            process.env.RABBITMQ_URL ||
-              `amqp://${process.env.RABBITMQ_USER || 'admin'}:${process.env.RABBITMQ_PASS || 'admin'}@${process.env.RABBITMQ_HOST || 'localhost'}:${process.env.RABBITMQ_PORT || '5672'}`,
-          ],
+          urls: [RABBITMQ_URL],
           queue: 'record_processing_queue',
           queueOptions: {
             durable: true,

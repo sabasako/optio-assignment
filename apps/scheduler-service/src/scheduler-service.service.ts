@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { RedisService, JobConfig, RecordData } from './redis/redis.service';
+import { RedisService, JobConfig, RecordData } from '@app/common';
 import { JobCreatedDto, JobUpdatedDto } from './dto';
 import { randomUUID } from 'crypto';
 

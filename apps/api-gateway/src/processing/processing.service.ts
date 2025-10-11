@@ -2,7 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { randomUUID } from 'crypto';
 import { CreateJobDto, UpdateJobConfigDto } from './dto';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '@app/common';
 
 @Injectable()
 export class ProcessingService {

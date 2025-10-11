@@ -56,6 +56,31 @@ services:
     networks:
       - optio-network
 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: optio-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=kibana
+      - SERVER_HOST=0.0.0.0
+    ports:
+      - '5601:5601'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -f http://localhost:5601/api/status || exit 1',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - optio-network
+    restart: unless-stopped
+
   # Application Services
   api-gateway:
     build:
@@ -126,6 +151,8 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - PORT=3002
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=${RABBITMQ_USER:-admin}
@@ -133,6 +160,8 @@ services:
       - ELASTICSEARCH_NODE=http://elasticsearch:9200
       - WEBSOCKET_URL=${WEBSOCKET_URL:-http://websocket-service:3003}
     depends_on:
+      redis:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       elasticsearch:

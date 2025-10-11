@@ -3,8 +3,8 @@ POST http://localhost:3000/api/processing/start
 Content-Type: application/json
 
 {
-  "totalRecords": 100,
-  "totalMinutes": 200
+  "totalRecords": 300,
+  "recordsPerMinute": 300
 }
 
 
@@ -13,7 +13,7 @@ PATCH http://localhost:3000/api/processing/611d3e41-619a-482a-9f20-a8d3fb9955e2/
 Content-Type: application/json
 
 {
-  "totalMinutes": 500
+  "recordPerMinute": 500
 }
 
 ### Check job status (completed job)
