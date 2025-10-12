@@ -184,9 +184,15 @@ services:
       - PORT=3003
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:4200}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-admin}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:4200}
     depends_on:
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - optio-network

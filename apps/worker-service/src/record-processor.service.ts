@@ -63,22 +63,21 @@ export class RecordProcessorService {
 
       // Update Redis: mark as completed and increment counter
       await this.redisService.updateRecordStatus(jobId, recordId, 'completed');
-      const processedCount =
-        await this.redisService.incrementProcessedCount(jobId);
+      const jobConfig = await this.redisService.incrementProcessedCount(jobId);
 
       // Get job config for progress calculation
-      const jobConfig = await this.redisService.getJobConfig(jobId);
+      // const jobConfig = await this.redisService.getJobConfig(jobId);
 
       if (jobConfig) {
         const progressPercentage = Math.round(
-          (processedCount / jobConfig.totalRecords) * 100,
+          (jobConfig.processedCount / jobConfig.totalRecords) * 100,
         );
 
         // Send progress update to WebSocket (fire-and-forget)
         const progressUpdate: ProgressUpdate = {
           jobId,
           recordId,
-          processedCount,
+          processedCount: jobConfig.processedCount,
           totalRecords: jobConfig.totalRecords,
           progressPercentage,
           status: 'completed',
@@ -88,15 +87,18 @@ export class RecordProcessorService {
         this.websocketClient.sendProgressUpdate(progressUpdate);
 
         // Check if job is complete
-        if (processedCount >= jobConfig.totalRecords) {
+        if (jobConfig.processedCount >= jobConfig.totalRecords) {
           await this.redisService.updateJobStatus(jobId, 'completed');
           this.logger.log(`Job ${jobId} completed - all records processed`);
-        }
-      }
 
-      this.logger.log(
-        `Record ${jobId}:${recordId} processed successfully in ${processingTime}ms (count: ${processedCount})`,
-      );
+          // Send job completion notification to WebSocket
+          this.websocketClient.sendJobCompleted(jobId, jobConfig.totalRecords);
+        }
+
+        this.logger.log(
+          `Record ${jobId}:${recordId} processed successfully in ${processingTime}ms (count: ${jobConfig.processedCount})`,
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Failed to process record ${jobId}:${recordId}: ${error.message}`,

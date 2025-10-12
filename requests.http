@@ -9,7 +9,7 @@ Content-Type: application/json
 
 
 ### Update job config
-PATCH http://localhost:3000/api/processing/33324937-0c3f-434f-90ab-9396fe2882cd/config
+PATCH http://localhost:3000/api/processing/8a8a51ef-3e40-4d49-b6dd-e29efe354d6e/config
 Content-Type: application/json
 
 {

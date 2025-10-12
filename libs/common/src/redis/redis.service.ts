@@ -200,7 +200,7 @@ export class RedisService implements OnModuleInit {
 
   // ========== Job Progress Methods ==========
 
-  async incrementProcessedCount(jobId: string): Promise<number> {
+  async incrementProcessedCount(jobId: string): Promise<JobConfig | null> {
     try {
       const config = await this.getJobConfig(jobId);
       if (!config) {
@@ -209,12 +209,12 @@ export class RedisService implements OnModuleInit {
 
       config.processedCount++;
       await this.saveJobConfig(config);
-      return config.processedCount;
+      return config;
     } catch (error) {
       this.logger.error(
         `Error incrementing processed count for ${jobId}: ${error.message}`,
       );
-      return -1;
+      throw error;
     }
   }
 
