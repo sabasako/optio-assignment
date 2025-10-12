@@ -1,0 +1,65 @@
+<div class="container">
+  <div class="card">
+    <h2 class="title">Create New Job</h2>
+    <p class="subtitle">Configure and start a new data processing job</p>
+
+    <form (ngSubmit)="onSubmit()" class="form">
+      <div class="form-group">
+        <label for="totalRecords" class="label">
+          Total Records (X)
+          <span class="label-hint">Number of records to process</span>
+        </label>
+        <input
+          type="number"
+          id="totalRecords"
+          name="totalRecords"
+          [(ngModel)]="totalRecords"
+          class="input"
+          min="1"
+          required
+          [disabled]="isSubmitting"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="recordsPerMinute" class="label">
+          Records Per Minute (Y)
+          <span class="label-hint">Processing speed</span>
+        </label>
+        <input
+          type="number"
+          id="recordsPerMinute"
+          name="recordsPerMinute"
+          [(ngModel)]="recordsPerMinute"
+          class="input"
+          min="1"
+          required
+          [disabled]="isSubmitting"
+        />
+      </div>
+
+      <div *ngIf="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary"
+        [disabled]="isSubmitting"
+      >
+        <span *ngIf="!isSubmitting">Start Job</span>
+        <span *ngIf="isSubmitting">Creating Job...</span>
+      </button>
+    </form>
+
+    <div class="info-box">
+      <h3>How it works:</h3>
+      <ul>
+        <li>Enter the total number of records to process</li>
+        <li>Set the processing speed (records per minute)</li>
+        <li>Click "Start Job" to begin processing</li>
+        <li>You'll be redirected to the dashboard to monitor progress in real-time</li>
+      </ul>
+    </div>
+  </div>
+</div>

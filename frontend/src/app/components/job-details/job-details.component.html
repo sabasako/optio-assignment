@@ -1,0 +1,118 @@
+<div class="container">
+  <div class="header">
+    <button class="btn-back" (click)="backToDashboard()">
+      ← Back to Dashboard
+    </button>
+  </div>
+
+  <div *ngIf="!job" class="loading">
+    Loading job details...
+  </div>
+
+  <div *ngIf="job" class="content">
+    <!-- Job Info Card -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Job Details</h2>
+        <span class="status-badge" [ngClass]="'status-' + job.status">
+          {{ job.status }}
+        </span>
+      </div>
+
+      <div class="job-info-grid">
+        <div class="info-item">
+          <div class="info-label">Job ID</div>
+          <div class="info-value">{{ job.jobId }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Total Records</div>
+          <div class="info-value">{{ job.totalRecords }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Processed</div>
+          <div class="info-value">{{ job.processedCount }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Speed</div>
+          <div class="info-value">{{ job.recordsPerMinute }}/min</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Progress</div>
+          <div class="info-value">{{ job.progressPercentage }}%</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Time Remaining</div>
+          <div class="info-value">{{ job.estimatedTimeRemaining }}</div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-section">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="job.progressPercentage"></div>
+        </div>
+        <div class="progress-text">
+          {{ job.processedCount }} / {{ job.totalRecords }} records processed
+        </div>
+      </div>
+
+      <!-- Speed Control -->
+      <div class="speed-control" *ngIf="job.status === 'processing'">
+        <h3>Update Processing Speed</h3>
+        <div class="speed-form">
+          <input
+            type="number"
+            [(ngModel)]="newRecordsPerMinute"
+            class="input"
+            min="1"
+            [disabled]="isUpdatingSpeed"
+          />
+          <button
+            class="btn-primary"
+            (click)="updateSpeed()"
+            [disabled]="isUpdatingSpeed || isSpeedUnchanged()"
+          >
+            {{ isUpdatingSpeed ? 'Updating...' : 'Update Speed' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="charts-grid">
+      <!-- Processing Rate Chart -->
+      <div class="card chart-card">
+        <h3>Processing Rate Over Time</h3>
+        <div class="chart-container">
+          <canvas #rateChart></canvas>
+        </div>
+        <div *ngIf="processingRates.length === 0" class="chart-placeholder">
+          Waiting for data...
+        </div>
+      </div>
+
+      <!-- Worker Distribution Chart -->
+      <div class="card chart-card">
+        <h3>Worker Distribution</h3>
+        <div class="chart-container">
+          <canvas #workerChart></canvas>
+        </div>
+        <div *ngIf="workerStats.size === 0" class="chart-placeholder">
+          No worker data yet...
+        </div>
+      </div>
+    </div>
+
+    <!-- Timestamps -->
+    <div class="card timestamps">
+      <div class="timestamp-item">
+        <span class="timestamp-label">Created:</span>
+        <span class="timestamp-value">{{ job.createdAt | date:'medium' }}</span>
+      </div>
+      <div class="timestamp-item">
+        <span class="timestamp-label">Last Updated:</span>
+        <span class="timestamp-value">{{ job.updatedAt | date:'medium' }}</span>
+      </div>
+    </div>
+  </div>
+</div>

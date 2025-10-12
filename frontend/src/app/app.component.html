@@ -1,0 +1,18 @@
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-content">
+      <h1 class="app-title" routerLink="/dashboard">{{ title }}</h1>
+      <nav class="nav-links">
+        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">Dashboard</a>
+        <a routerLink="/create" routerLinkActive="active" class="nav-link">Create Job</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <router-outlet />
+  </main>
+
+  <!-- Toast Notifications -->
+  <app-toast-container />
+</div>
