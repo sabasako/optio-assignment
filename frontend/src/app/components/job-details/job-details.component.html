@@ -5,9 +5,7 @@
     </button>
   </div>
 
-  <div *ngIf="!job" class="loading">
-    Loading job details...
-  </div>
+  <div *ngIf="!job" class="loading">Loading job details...</div>
 
   <div *ngIf="job" class="content">
     <!-- Job Info Card -->
@@ -35,6 +33,9 @@
         <div class="info-item">
           <div class="info-label">Speed</div>
           <div class="info-value">{{ job.recordsPerMinute }}/min</div>
+          <div class="info-value">
+            {{ getRecordsPerSecond(job.recordsPerMinute) }} /sec
+          </div>
         </div>
         <div class="info-item">
           <div class="info-label">Progress</div>
@@ -49,7 +50,10 @@
       <!-- Progress Bar -->
       <div class="progress-section">
         <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="job.progressPercentage"></div>
+          <div
+            class="progress-fill"
+            [style.width.%]="job.progressPercentage"
+          ></div>
         </div>
         <div class="progress-text">
           {{ job.processedCount }} / {{ job.totalRecords }} records processed
@@ -78,27 +82,86 @@
       </div>
     </div>
 
-    <!-- Charts Grid -->
-    <div class="charts-grid">
-      <!-- Processing Rate Chart -->
-      <div class="card chart-card">
-        <h3>Processing Rate Over Time</h3>
-        <div class="chart-container">
-          <canvas #rateChart></canvas>
-        </div>
-        <div *ngIf="processingRates.length === 0" class="chart-placeholder">
-          Waiting for data...
-        </div>
+    <!-- Processed Records Section -->
+    <div class="card processed-records-card">
+      <div class="card-header">
+        <h3>Recent Processed Records</h3>
+        <span class="record-count"
+          >{{ processedRecords.length }} records captured</span
+        >
       </div>
 
-      <!-- Worker Distribution Chart -->
-      <div class="card chart-card">
-        <h3>Worker Distribution</h3>
-        <div class="chart-container">
-          <canvas #workerChart></canvas>
+      <div *ngIf="processedRecords.length === 0" class="empty-state">
+        <p>
+          No records processed yet. Processing will appear here in real-time.
+        </p>
+      </div>
+
+      <div *ngIf="processedRecords.length > 0" class="records-section">
+        <div class="records-list">
+          <div *ngFor="let record of paginatedRecords" class="record-item">
+            <div class="record-main">
+              <div class="record-id-section">
+                <span class="record-label">Record ID</span>
+                <span class="record-id">#{{ record.recordId }}</span>
+              </div>
+              <div class="record-count-badge">
+                {{ record.processedCount }} / {{ job.totalRecords }}
+              </div>
+            </div>
+            <div class="record-details">
+              <div class="detail-item">
+                <span class="detail-icon">🕒</span>
+                <span class="detail-label">Processed At</span>
+                <span class="detail-value">{{
+                  record.processedAt | date: 'short'
+                }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-icon">⚙️</span>
+                <span class="detail-label">Worker ID</span>
+                <span class="detail-value worker-id"
+                  >{{ record.workerId.substring(0, 30) }}...</span
+                >
+              </div>
+            </div>
+          </div>
         </div>
-        <div *ngIf="workerStats.size === 0" class="chart-placeholder">
-          No worker data yet...
+
+        <!-- Pagination -->
+        <div class="pagination" *ngIf="totalPages > 1">
+          <button
+            class="pagination-btn"
+            (click)="previousPage()"
+            [disabled]="currentPage === 1"
+          >
+            ← Previous
+          </button>
+
+          <div class="pagination-pages">
+            <button
+              *ngFor="let page of getPageNumbers()"
+              class="pagination-page"
+              [class.active]="page === currentPage"
+              (click)="goToPage(page)"
+            >
+              {{ page }}
+            </button>
+          </div>
+
+          <button
+            class="pagination-btn"
+            (click)="nextPage()"
+            [disabled]="currentPage === totalPages"
+          >
+            Next →
+          </button>
+        </div>
+
+        <div class="pagination-info">
+          Page {{ currentPage }} of {{ totalPages }} (showing
+          {{ paginatedRecords.length }} of
+          {{ processedRecords.length }} records)
         </div>
       </div>
     </div>
@@ -107,11 +170,15 @@
     <div class="card timestamps">
       <div class="timestamp-item">
         <span class="timestamp-label">Created:</span>
-        <span class="timestamp-value">{{ job.createdAt | date:'medium' }}</span>
+        <span class="timestamp-value">{{
+          job.createdAt | date: 'medium'
+        }}</span>
       </div>
       <div class="timestamp-item">
         <span class="timestamp-label">Last Updated:</span>
-        <span class="timestamp-value">{{ job.updatedAt | date:'medium' }}</span>
+        <span class="timestamp-value">{{
+          job.updatedAt | date: 'medium'
+        }}</span>
       </div>
     </div>
   </div>

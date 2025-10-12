@@ -1,7 +1,7 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, interval, takeUntil } from 'rxjs';
+import { Subject, interval, takeUntil, throttleTime } from 'rxjs';
 import { ApiService, JobStatus } from '../../services/api.service';
 import {
   WebSocketService,
@@ -10,7 +10,7 @@ import {
 } from '../../services/websocket.service';
 import { JobStorageService } from '../../services/job-storage.service';
 
-interface JobDisplay extends JobStatus {
+export interface JobDisplay extends JobStatus {
   isActive: boolean;
 }
 
@@ -20,6 +20,7 @@ interface JobDisplay extends JobStatus {
   imports: [CommonModule, RouterModule],
   templateUrl: './job-dashboard.component.html',
   styleUrls: ['./job-dashboard.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class JobDashboardComponent implements OnInit, OnDestroy {
   jobs: Map<string, JobDisplay> = new Map();
@@ -31,6 +32,7 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
     private wsService: WebSocketService,
     private jobStorage: JobStorageService,
     private router: Router,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -41,11 +43,15 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((connected) => {
         this.wsConnected = connected;
+        this.cdr.markForCheck();
       });
 
     // Listen for progress updates
     this.wsService.progress$
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        throttleTime(100, undefined, { leading: true, trailing: true }),
+      )
       .subscribe((update) => {
         this.handleProgressUpdate(update);
       });
@@ -82,7 +88,7 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
     console.log(`Loading ${storedJobIds.length} jobs from localStorage`);
 
     // Load each job
-    storedJobIds.forEach(jobId => {
+    storedJobIds.forEach((jobId) => {
       this.addJob(jobId);
     });
   }
@@ -97,7 +103,6 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
   }
 
   addJob(jobId: string): void {
-    // Fetch job status
     this.apiService.getJobStatus(jobId).subscribe({
       next: (status) => {
         this.jobs.set(jobId, {
@@ -108,6 +113,8 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
 
         // Subscribe to WebSocket updates
         this.wsService.subscribeToJob(jobId);
+
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error fetching job status:', err);
@@ -118,8 +125,9 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
   removeJob(jobId: string): void {
     this.wsService.unsubscribeFromJob(jobId);
     this.jobs.delete(jobId);
-    // Also remove from localStorage
     this.jobStorage.removeJob(jobId);
+
+    this.cdr.markForCheck();
   }
 
   refreshJobs(): void {
@@ -132,6 +140,8 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
               isActive:
                 status.status === 'processing' || status.status === 'pending',
             });
+
+            this.cdr.markForCheck();
           },
           error: (err) => {
             console.error('Error refreshing job:', err);
@@ -144,29 +154,29 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
   handleProgressUpdate(update: JobProgressUpdate): void {
     const job = this.jobs.get(update.jobId);
     if (job) {
-      this.jobs.set(update.jobId, {
-        ...job,
-        processedCount: update.progress.processedCount,
-        progressPercentage: update.progress.percentage,
-        remainingRecords: update.progress.remainingRecords,
-        estimatedTimeRemaining: update.progress.estimatedTimeRemaining,
-        updatedAt: update.timestamp,
-      });
+      // Mutate in place instead of creating new object to avoid re-rendering
+      job.processedCount = update.progress.processedCount;
+      job.progressPercentage = update.progress.percentage;
+      job.remainingRecords = update.progress.remainingRecords;
+      job.estimatedTimeRemaining = update.progress.estimatedTimeRemaining;
+      job.updatedAt = update.timestamp;
+
+      this.cdr.markForCheck();
     }
   }
 
   handleCompletedUpdate(update: JobCompletedUpdate): void {
     const job = this.jobs.get(update.jobId);
     if (job) {
-      this.jobs.set(update.jobId, {
-        ...job,
-        status: 'completed',
-        processedCount: update.totalRecords,
-        progressPercentage: 100,
-        remainingRecords: 0,
-        estimatedTimeRemaining: 'Completed',
-        isActive: false,
-      });
+      // Mutate in place instead of creating new object
+      job.status = 'completed';
+      job.processedCount = update.totalRecords;
+      job.progressPercentage = 100;
+      job.remainingRecords = 0;
+      job.estimatedTimeRemaining = 'Completed';
+      job.isActive = false;
+
+      this.cdr.markForCheck();
     }
   }
 
@@ -197,5 +207,10 @@ export class JobDashboardComponent implements OnInit, OnDestroy {
 
   viewJobDetails(jobId: string): void {
     this.router.navigate(['/job', jobId]);
+  }
+
+  // TrackBy function to prevent unnecessary re-renders of job cards
+  trackByJobId(_index: number, job: JobDisplay): string {
+    return job.jobId;
   }
 }

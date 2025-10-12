@@ -61,12 +61,12 @@ export class RecordProcessorService {
         throw new Error('Failed to index record in Elasticsearch');
       }
 
-      // Update Redis: mark as completed and increment counter
+      // Update Redis: mark as completed and increment counter (idempotently)
       await this.redisService.updateRecordStatus(jobId, recordId, 'completed');
-      const jobConfig = await this.redisService.incrementProcessedCount(jobId);
-
-      // Get job config for progress calculation
-      // const jobConfig = await this.redisService.getJobConfig(jobId);
+      const jobConfig = await this.redisService.incrementProcessedCount(
+        jobId,
+        recordId,
+      );
 
       if (jobConfig) {
         const progressPercentage = Math.round(

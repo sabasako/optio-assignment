@@ -10,7 +10,7 @@ import { JobStorageService } from '../../services/job-storage.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './job-create.component.html',
-  styleUrls: ['./job-create.component.css']
+  styleUrls: ['./job-create.component.css'],
 })
 export class JobCreateComponent {
   totalRecords: number = 100;
@@ -21,7 +21,7 @@ export class JobCreateComponent {
   constructor(
     private apiService: ApiService,
     private jobStorage: JobStorageService,
-    private router: Router
+    private router: Router,
   ) {}
 
   onSubmit(): void {
@@ -33,32 +33,34 @@ export class JobCreateComponent {
     this.isSubmitting = true;
     this.error = null;
 
-    this.apiService.createJob({
-      totalRecords: this.totalRecords,
-      recordsPerMinute: this.recordsPerMinute
-    }).subscribe({
-      next: (response) => {
-        console.log('Job created:', response);
+    this.apiService
+      .createJob({
+        totalRecords: this.totalRecords,
+        recordsPerMinute: this.recordsPerMinute,
+      })
+      .subscribe({
+        next: (response) => {
+          console.log('Job created:', response);
 
-        // Save job to localStorage
-        this.jobStorage.addJob({
-          jobId: response.jobId,
-          createdAt: new Date().toISOString(),
-          totalRecords: response.totalRecords,
-          recordsPerMinute: response.recordsPerMinute
-        });
+          // Save job to localStorage
+          this.jobStorage.addJob({
+            jobId: response.jobId,
+            createdAt: new Date().toISOString(),
+            totalRecords: response.totalRecords,
+            recordsPerMinute: response.recordsPerMinute,
+          });
 
-        // Navigate to dashboard (no query params needed)
-        this.router.navigate(['/dashboard']);
-      },
-      error: (err) => {
-        console.error('Error creating job:', err);
-        this.error = 'Failed to create job. Please try again.';
-        this.isSubmitting = false;
-      },
-      complete: () => {
-        this.isSubmitting = false;
-      }
-    });
+          // Navigate to detailed jobs page
+          this.router.navigate([`/job/${response.jobId}`]);
+        },
+        error: (err) => {
+          console.error('Error creating job:', err);
+          this.error = 'Failed to create job. Please try again.';
+          this.isSubmitting = false;
+        },
+        complete: () => {
+          this.isSubmitting = false;
+        },
+      });
   }
 }

@@ -2,13 +2,15 @@
   <div class="header">
     <h1 class="title">Job Dashboard</h1>
     <div class="header-actions">
-      <div class="ws-status" [class.connected]="wsConnected" [class.disconnected]="!wsConnected">
+      <div
+        class="ws-status"
+        [class.connected]="wsConnected"
+        [class.disconnected]="!wsConnected"
+      >
         <span class="status-dot"></span>
         <span>{{ wsConnected ? 'Connected' : 'Disconnected' }}</span>
       </div>
-      <button class="btn-primary" routerLink="/create">
-        + New Job
-      </button>
+      <button class="btn-primary" routerLink="/create">+ New Job</button>
     </div>
   </div>
 
@@ -16,13 +18,15 @@
     <div class="empty-icon">📊</div>
     <h2>No jobs yet</h2>
     <p>Create your first job to start processing data</p>
-    <button class="btn-primary" routerLink="/create">
-      Create Job
-    </button>
+    <button class="btn-primary" routerLink="/create">Create Job</button>
   </div>
 
   <div *ngIf="jobs.size > 0" class="jobs-grid">
-    <div *ngFor="let job of getJobsArray()" class="job-card" (click)="viewJobDetails(job.jobId)">
+    <div
+      *ngFor="let job of getJobsArray(); trackBy: trackByJobId"
+      class="job-card"
+      (click)="viewJobDetails(job.jobId)"
+    >
       <div class="job-header">
         <div class="job-title">
           <h3>Job {{ job.jobId.substring(0, 8) }}...</h3>
@@ -30,18 +34,26 @@
             {{ job.status }}
           </span>
         </div>
-        <button class="btn-remove" (click)="removeJob(job.jobId); $event.stopPropagation()">
+        <button
+          class="btn-remove"
+          (click)="removeJob(job.jobId); $event.stopPropagation()"
+        >
           ×
         </button>
       </div>
 
       <div class="progress-section">
         <div class="progress-info">
-          <span class="progress-text">{{ job.processedCount }} / {{ job.totalRecords }}</span>
+          <span class="progress-text"
+            >{{ job.processedCount }} / {{ job.totalRecords }}</span
+          >
           <span class="progress-percentage">{{ job.progressPercentage }}%</span>
         </div>
         <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="job.progressPercentage"></div>
+          <div
+            class="progress-fill"
+            [style.width.%]="job.progressPercentage"
+          ></div>
         </div>
       </div>
 
@@ -62,10 +74,10 @@
 
       <div class="job-footer">
         <div class="timestamp">
-          Started: {{ job.createdAt | date:'short' }}
+          Started: {{ job.createdAt | date: 'short' }}
         </div>
         <div class="timestamp">
-          Updated: {{ job.updatedAt | date:'short' }}
+          Updated: {{ job.updatedAt | date: 'short' }}
         </div>
       </div>
     </div>

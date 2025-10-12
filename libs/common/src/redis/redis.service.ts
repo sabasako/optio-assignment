@@ -79,7 +79,18 @@ export class RedisService implements OnModuleInit {
   async saveJobConfig(config: JobConfig): Promise<void> {
     try {
       const key = `job:${config.jobId}:config`;
-      await this.redisClient.set(key, JSON.stringify(config));
+      const countKey = `job:${config.jobId}:processedCount`;
+
+      const multi = this.redisClient.multi();
+      multi.set(key, JSON.stringify(config));
+
+      // For a new job, initialize the separate atomic counter
+      if (config.status === 'pending') {
+        multi.set(countKey, 0);
+      }
+
+      await multi.exec();
+
       this.logger.log(`Saved job config for ${config.jobId}`);
     } catch (error) {
       this.logger.error(
@@ -91,8 +102,21 @@ export class RedisService implements OnModuleInit {
   async getJobConfig(jobId: string): Promise<JobConfig | null> {
     try {
       const key = `job:${jobId}:config`;
-      const data = await this.redisClient.get(key);
-      return data ? JSON.parse(data) : null;
+      const countKey = `job:${jobId}:processedCount`;
+
+      const [configData, countData] = await Promise.all([
+        this.redisClient.get(key),
+        this.redisClient.get(countKey),
+      ]);
+
+      if (!configData) {
+        return null;
+      }
+
+      const config = JSON.parse(configData);
+      config.processedCount = countData ? parseInt(countData, 10) : 0;
+
+      return config;
     } catch (error) {
       this.logger.error(
         `Error getting job config for ${jobId}: ${error.message}`,
@@ -200,15 +224,50 @@ export class RedisService implements OnModuleInit {
 
   // ========== Job Progress Methods ==========
 
-  async incrementProcessedCount(jobId: string): Promise<JobConfig | null> {
+  // Idempotently increment processed count - only increments if record hasn't been counted before. Problem before was that the worker incremented the Redis counter before acknowledging the RabbitMQ message. If the worker crashes after incrementing but before acking, RabbitMQ will redeliver the message, causing a double increment (It happened sometimes when recordsPerMinute was high and the worker was under load, It didn't effect elasticsearch, it had correct data, but redis was inconsistent).
+
+  async incrementProcessedCount(
+    jobId: string,
+    recordId: number,
+  ): Promise<JobConfig | null> {
     try {
-      const config = await this.getJobConfig(jobId);
-      if (!config) {
-        throw new Error(`Job ${jobId} not found`);
+      const countKey = `job:${jobId}:processedCount`;
+      const configKey = `job:${jobId}:config`;
+      const completedSetKey = `job:${jobId}:completed`;
+
+      // Use Redis transaction to atomically check and increment
+      // SADD returns 1 if element was added (first time), 0 if already exists
+      const addedToSet = await this.redisClient.sadd(
+        completedSetKey,
+        recordId.toString(),
+      );
+
+      // Only increment if this record wasn't already marked as completed
+      let newCount: number;
+      if (addedToSet === 1) {
+        // Record was not in set - this is the first time processing it
+        newCount = await this.redisClient.incr(countKey);
+        this.logger.debug(
+          `Incremented count for ${jobId}:${recordId} to ${newCount}`,
+        );
+      } else {
+        // Record was already in set - this is a duplicate/redelivery
+        newCount = parseInt((await this.redisClient.get(countKey)) || '0', 10);
+        this.logger.warn(
+          `Skipped duplicate increment for ${jobId}:${recordId} (count: ${newCount})`,
+        );
       }
 
-      config.processedCount++;
-      await this.saveJobConfig(config);
+      const configData = await this.redisClient.get(configKey);
+
+      if (!configData) {
+        throw new Error(
+          `Config not found for ${jobId} after incrementing count`,
+        );
+      }
+
+      const config = JSON.parse(configData);
+      config.processedCount = newCount;
       return config;
     } catch (error) {
       this.logger.error(
