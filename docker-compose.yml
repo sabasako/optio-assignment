@@ -65,15 +65,13 @@ services:
       - SERVER_HOST=0.0.0.0
     ports:
       - '5601:5601'
+    volumes:
+      - kibana-data:/usr/share/kibana/data
     depends_on:
       elasticsearch:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'curl -f http://localhost:5601/api/status || exit 1',
-        ]
+      test: ['CMD-SHELL', 'curl -f http://localhost:5601/api/status || exit 1']
       interval: 30s
       timeout: 10s
       retries: 5
@@ -202,3 +200,4 @@ volumes:
   redis-data:
   rabbitmq-data:
   elasticsearch-data:
+  kibana-data:

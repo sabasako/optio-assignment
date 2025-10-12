@@ -3,21 +3,21 @@ POST http://localhost:3000/api/processing/start
 Content-Type: application/json
 
 {
-  "totalRecords": 300,
-  "recordsPerMinute": 300
+  "totalRecords": 150,
+  "recordsPerMinute": 100
 }
 
 
 ### Update job config
-PATCH http://localhost:3000/api/processing/611d3e41-619a-482a-9f20-a8d3fb9955e2/config
+PATCH http://localhost:3000/api/processing/33324937-0c3f-434f-90ab-9396fe2882cd/config
 Content-Type: application/json
 
 {
-  "recordPerMinute": 500
+  "recordsPerMinute": 500
 }
 
 ### Check job status (completed job)
-GET http://localhost:3000/api/processing/54e9afe6-66b0-4866-873d-d82fe84767a3/status
+GET http://localhost:3000/api/processing/33324937-0c3f-434f-90ab-9396fe2882cd/status
 
 ### Check job status (processing job)
 GET http://localhost:3000/api/processing/54e9afe6-66b0-4866-873d-d82fe84767a3/status
