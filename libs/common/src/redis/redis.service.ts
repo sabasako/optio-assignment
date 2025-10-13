@@ -17,6 +17,7 @@ export interface RecordData {
   scheduledAt: number;
   // Pending is default status when created, sent is after published to RabbitMQ, processing is when worker server picks it up, completed is after successful processing, failed if processing failed
   status: 'pending' | 'sent' | 'processing' | 'completed' | 'failed';
+  sentAt?: number; // Timestamp when message was sent to RabbitMQ
   data: {
     id: number;
     timestamp: Date;
@@ -179,6 +180,19 @@ export class RedisService implements OnModuleInit {
       const record = await this.getRecord(jobId, recordId);
       if (record) {
         record.status = status;
+
+        // Track when message was sent to RabbitMQ for recovery purposes
+        if (status === 'sent') {
+          record.sentAt = Date.now();
+        } else if (
+          status === 'processing' ||
+          status === 'completed' ||
+          status === 'failed'
+        ) {
+          // Clear sentAt once message progresses past 'sent' status
+          delete record.sentAt;
+        }
+
         await this.saveRecord(record);
       }
     } catch (error) {
@@ -352,6 +366,55 @@ export class RedisService implements OnModuleInit {
       const hours = Math.floor(minutes / 60);
       const mins = Math.ceil(minutes % 60);
       return `${hours} hour${hours !== 1 ? 's' : ''} ${mins} minute${mins !== 1 ? 's' : ''}`;
+    }
+  }
+
+  // ========== Recovery Methods ==========
+
+  // Recover stuck 'sent' records that never made it to RabbitMQ or got lost. If a record has been in 'sent' status for more than 10 seconds without progressing to 'processing' or 'completed', it's likely lost and should be retried. This method is needed, without this data will be lost if rabbitmq crashes
+  async recoverStuckSentRecords(): Promise<number> {
+    try {
+      const pattern = 'job:*:record:*';
+      const keys = await this.redisClient.keys(pattern);
+
+      let recoveredCount = 0;
+      const now = Date.now();
+      const stuckThreshold = 10000; // 10 seconds
+
+      for (const key of keys) {
+        const data = await this.redisClient.get(key);
+        if (!data) continue;
+
+        const record: RecordData = JSON.parse(data);
+
+        // Check if record is stuck in 'sent' status
+        if (record.status === 'sent' && record.sentAt) {
+          const timeSinceSent = now - record.sentAt;
+
+          if (timeSinceSent > stuckThreshold) {
+            // Reset to pending and re-add to scheduled queue for immediate retry
+            record.status = 'pending';
+            delete record.sentAt;
+
+            await this.saveRecord(record);
+            await this.addToScheduledQueue(record.jobId, record.recordId, now);
+
+            recoveredCount++;
+            this.logger.warn(
+              `Recovered stuck record ${record.jobId}:${record.recordId} (was stuck for ${Math.round(timeSinceSent / 1000)}s)`,
+            );
+          }
+        }
+      }
+
+      if (recoveredCount > 0) {
+        this.logger.log(`Recovered ${recoveredCount} stuck 'sent' records`);
+      }
+
+      return recoveredCount;
+    } catch (error) {
+      this.logger.error(`Error recovering stuck records: ${error.message}`);
+      return 0;
     }
   }
 

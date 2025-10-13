@@ -7,6 +7,7 @@ import { RedisService } from '@app/common';
 export class RecordPublisherService implements OnModuleInit {
   private readonly logger = new Logger(RecordPublisherService.name);
   private isRunning = false;
+  private isRecoveryRunning = false;
 
   constructor(
     @Inject('RABBITMQ_SERVICE') private readonly rabbitClient: ClientProxy,
@@ -45,6 +46,25 @@ export class RecordPublisherService implements OnModuleInit {
     }
   }
 
+  // Recovery mechanism: Check for stuck 'sent' messages every 5 seconds
+  // Messages stuck in 'sent' status for more than 10 seconds are reset to 'pending'
+  @Interval(5000)
+  async recoverStuckMessages() {
+    if (this.isRecoveryRunning) {
+      return;
+    }
+
+    this.isRecoveryRunning = true;
+
+    try {
+      await this.redisService.recoverStuckSentRecords();
+    } catch (error) {
+      this.logger.error(`Error in recoverStuckMessages: ${error.message}`);
+    } finally {
+      this.isRecoveryRunning = false;
+    }
+  }
+
   private async publishRecord(jobId: string, recordId: number): Promise<void> {
     try {
       // Get record from Redis
@@ -54,7 +74,7 @@ export class RecordPublisherService implements OnModuleInit {
         return;
       }
 
-      // Skip if already sent
+      // Skip if already sent, processing, completed, or failed
       if (record.status !== 'pending') {
         await this.redisService.removeFromScheduledQueue(jobId, recordId);
         return;
@@ -69,6 +89,7 @@ export class RecordPublisherService implements OnModuleInit {
         sentAt: new Date(),
       };
 
+      // Emit to RabbitMQ - this throws an error if RabbitMQ is not connected
       this.rabbitClient.emit('record.process', message);
 
       // Update record status to 'sent'
@@ -77,9 +98,6 @@ export class RecordPublisherService implements OnModuleInit {
       // Remove from scheduled queue
       await this.redisService.removeFromScheduledQueue(jobId, recordId);
 
-      // Log successful publish
-      // Note: We do NOT increment processedCount here because that should only happen
-      // when the worker actually processes the record. This prevents double-counting.
       this.logger.log(
         `Published record ${recordId} for job ${jobId} to RabbitMQ`,
       );
@@ -87,6 +105,8 @@ export class RecordPublisherService implements OnModuleInit {
       this.logger.error(
         `Error publishing record ${jobId}:${recordId} - ${error.message}`,
       );
+      // Leave record status as 'pending' so it can be retried
+      // The record stays in the scheduled queue and will be picked up in the next cycle
     }
   }
 }

@@ -20,8 +20,7 @@ async function bootstrap() {
       queueOptions: {
         durable: true,
       },
-      // For now so that rabbitmq doesnt wait process to finish, will be removed later
-      noAck: true,
+      noAck: false,
       prefetchCount: 10,
     },
   });

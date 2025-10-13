@@ -1,24 +1,14 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  ViewChild,
-  ElementRef,
-  AfterViewInit,
-} from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
-import { Chart, registerables } from 'chart.js';
 import { ApiService, JobStatus } from '../../services/api.service';
 import {
   WebSocketService,
   JobProgressUpdate,
 } from '../../services/websocket.service';
 import { ToastService } from '../../services/toast.service';
-
-Chart.register(...registerables);
 
 interface ProcessingRate {
   timestamp: Date;
@@ -40,10 +30,7 @@ interface ProcessedRecord {
   templateUrl: './job-details.component.html',
   styleUrls: ['./job-details.component.css'],
 })
-export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
-  @ViewChild('rateChart') rateChartRef!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('workerChart') workerChartRef!: ElementRef<HTMLCanvasElement>;
-
+export class JobDetailsComponent implements OnInit, OnDestroy {
   jobId: string = '';
   job: JobStatus | null = null;
   newRecordsPerMinute: number = 60;
@@ -58,8 +45,6 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
   pageSize = 10;
   maxRecordsToStore = 100; // Store max 100 most recent records
 
-  private rateChart: Chart | null = null;
-  private workerChart: Chart | null = null;
   private destroy$ = new Subject<void>();
   private lastProcessedCount = 0;
   private lastUpdateTime: Date | null = null;
@@ -106,24 +91,10 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
       });
   }
 
-  ngAfterViewInit(): void {
-    // Initialize charts after view is ready
-    setTimeout(() => {
-      this.initializeCharts();
-    }, 100);
-  }
-
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
     this.wsService.unsubscribeFromJob(this.jobId);
-
-    if (this.rateChart) {
-      this.rateChart.destroy();
-    }
-    if (this.workerChart) {
-      this.workerChart.destroy();
-    }
   }
 
   loadJobStatus(): void {
@@ -134,6 +105,9 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
       },
       error: (err) => {
         console.error('Error loading job:', err);
+        this.toastService.error(
+          'Could not find job details. Please go back to the dashboard.',
+        );
       },
     });
   }
@@ -177,8 +151,6 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.processingRates.length > 50) {
           this.processingRates.shift();
         }
-
-        this.updateRateChart();
       }
 
       this.lastProcessedCount = update.progress.processedCount;
@@ -187,115 +159,6 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
       // Update worker stats
       const currentCount = this.workerStats.get(update.workerId) || 0;
       this.workerStats.set(update.workerId, currentCount + 1);
-      this.updateWorkerChart();
-    }
-  }
-
-  initializeCharts(): void {
-    if (this.rateChartRef?.nativeElement) {
-      const ctx = this.rateChartRef.nativeElement.getContext('2d');
-      if (ctx) {
-        this.rateChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: [],
-            datasets: [
-              {
-                label: 'Processing Rate (records/min)',
-                data: [],
-                borderColor: 'rgb(66, 153, 225)',
-                backgroundColor: 'rgba(66, 153, 225, 0.1)',
-                tension: 0.4,
-                fill: true,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: false,
-              },
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'Records/Minute',
-                },
-              },
-              x: {
-                display: false,
-              },
-            },
-          },
-        });
-      }
-    }
-
-    if (this.workerChartRef?.nativeElement) {
-      const ctx = this.workerChartRef.nativeElement.getContext('2d');
-      if (ctx) {
-        this.workerChart = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: [],
-            datasets: [
-              {
-                data: [],
-                backgroundColor: [
-                  'rgb(66, 153, 225)',
-                  'rgb(72, 187, 120)',
-                  'rgb(237, 137, 54)',
-                  'rgb(159, 122, 234)',
-                  'rgb(236, 72, 153)',
-                ],
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'bottom',
-              },
-            },
-          },
-        });
-      }
-    }
-  }
-
-  updateRateChart(): void {
-    if (this.rateChart && this.processingRates.length > 0) {
-      const labels = this.processingRates.map((r) =>
-        r.timestamp.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-      );
-      const data = this.processingRates.map((r) => r.rate);
-
-      this.rateChart.data.labels = labels;
-      this.rateChart.data.datasets[0].data = data;
-      this.rateChart.update('none');
-    }
-  }
-
-  updateWorkerChart(): void {
-    if (this.workerChart && this.workerStats.size > 0) {
-      const labels = Array.from(this.workerStats.keys()).map(
-        (id) => id.substring(0, 20) + '...',
-      );
-      const data = Array.from(this.workerStats.values());
-
-      this.workerChart.data.labels = labels;
-      this.workerChart.data.datasets[0].data = data;
-      this.workerChart.update('none');
     }
   }
 
@@ -373,7 +236,10 @@ export class JobDetailsComponent implements OnInit, OnDestroy, AfterViewInit {
   getPageNumbers(): number[] {
     const pages: number[] = [];
     const maxPagesToShow = 5;
-    let startPage = Math.max(1, this.currentPage - Math.floor(maxPagesToShow / 2));
+    let startPage = Math.max(
+      1,
+      this.currentPage - Math.floor(maxPagesToShow / 2),
+    );
     let endPage = Math.min(this.totalPages, startPage + maxPagesToShow - 1);
 
     if (endPage - startPage < maxPagesToShow - 1) {

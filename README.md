@@ -1,98 +1,306 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# ჩანაწერების დამუშავების სისტემა (Record Processing System)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## პროექტის აღწერა
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+ეს არის Microservice სისტემა, რომელიც უზრუნველყოფს მონაცემების დამუშავებას მასშტაბურად. სისტემა იყენებს microservices არქიტექტურას და აერთიანებს შემდეგ ტექნოლოგიებს:
 
-## Description
+- **NestJS** - backend framework
+- **RabbitMQ** - შეტყობინებების რიგი (message queue)
+- **Redis** - cache და state management
+- **Elasticsearch** - მონაცემების შენახვა და ძიება
+- **Kibana** - მონაცემების ვიზუალიზაცია
+- **Angular** - frontend აპლიკაცია
+- **WebSocket** - რეალურ დროში მონაცემების გაცვლა
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## სისტემის არქიტექტურა
 
-## Project setup
+სისტემა შედგება შემდეგი სერვისებისგან:
 
-```bash
-$ npm install
-```
+1. **API Gateway** - მთავარი შესასვლელი წერტილი, რომელიც იღებს HTTP მოთხოვნებს
+2. **Scheduler Service** - Redis-ში ინახავს და გეგმავს ჩანაწერებს, შემდეგ კი განსაზღვრული სიჩქარით აგზავნის მათ RabbitMQ-ში.
+3. **Worker Services (2 ინსტანსი)** - იღებენ და ამუშავებენ ჩანაწერებს RabbitMQ-დან
+4. **WebSocket Service** - რეალურ დროში უგზავნის პროგრესის ინფორმაციას frontend-ს
+5. **Frontend** - Angular აპლიკაცია job-ების მართვისთვის
 
-## Compile and run the project
+## პროექტის სტრუქტურა
 
-```bash
-# development
-$ npm run start
+პროექტი აგებულია NestJS Monorepo პრინციპით, რაც საშუალებას გვაძლევს, ერთ რეპოზიტორიაში ვმართოთ რამდენიმე დაკავშირებული აპლიკაცია (Microservices). ძირითადი დირექტორიებია:
 
-# watch mode
-$ npm run start:dev
+    /apps: ეს არის მთავარი დირექტორია, სადაც პროექტის ყველა მიკროსერვისი (api-gateway, scheduler-service, worker-service, websocket-service). თითოეული მათგანი წარმოადგენს დამოუკიდებელ, გაშვებად აპლიკაციას.
 
-# production mode
-$ npm run start:prod
-```
+    /frontend: აქ არის angular ის აპლიკაცია
 
-## Run tests
+    /libs: ეს დირექტორია შეიცავს საერთო ლოგიკასა და მოდულებს, რომლებიც შეიძლება გაზიარდეს რამდენიმე მიკროსერვისს შორის. ეს გვეხმარება თავიდან ავირიდოთ კოდის დუბლირება და უზრუნველყოფს ერთგვაროვან მიდგომას საერთო ამოცანების გადაჭრისას.
 
-```bash
-# unit tests
-$ npm run test
+## როგორ გავუშვათ სისტემა
 
-# e2e tests
-$ npm run test:e2e
+### წინაპირობები
 
-# test coverage
-$ npm run test:cov
-```
+დარწმუნდით, რომ თქვენს სისტემაზე დაინსტალირებულია:
 
-## Deployment
+- **Docker** (20.10 ან უფრო ახალი ვერსია)
+- **Docker Compose** (v2.0 ან უფრო ახალი ვერსია)
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### 1. რეპოზიტორიის კლონირება
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+\`\`\`bash
+git clone https://github.com/sabasako/optio-assignment
+cd optio-assignment
+\`\`\`
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+### 2. გარემოს კონფიგურაცია
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+შექმენით \`.env\` ფაილი \`.env.example\`-ის საფუძველზე:
 
-## Resources
+\`\`\`bash
+cp .env.example .env
+\`\`\`
 
-Check out a few resources that may come in handy when working with NestJS:
+### 3. სისტემის გაშვება
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+მთელი სისტემის ერთი ბრძანებით გაშვება:
 
-## Support
+\`\`\`bash
+docker-compose up --build
+\`\`\`
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+ან, თუ გსურთ background-ში გაშვება:
 
-## Stay in touch
+\`\`\`bash
+docker-compose up --build -d
+\`\`\`
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### 4. შემოწმება რომ ყველა სერვისი გაშვებულია
 
-## License
+\`\`\`bash
+docker-compose ps
+\`\`\`
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+ყველა სერვისი უნდა იყოს \`healthy\` ან \`started\` სტატუსში.
+
+### 5. დაშვების პორტები
+
+სისტემის გაშვების შემდეგ, შემდეგი სერვისები იქნება ხელმისაწვდომი:
+
+- **Frontend**: http://localhost:4200
+- **API Gateway**: http://localhost:3000
+- **Scheduler Service**: http://localhost:3001
+- **Worker Service 1**: http://localhost:3002
+- **Worker Service 2**: http://localhost:3004
+- **WebSocket Service**: http://localhost:3003
+- **RabbitMQ Management**: http://localhost:15672 (username: \`admin\`, password: \`admin\`)
+- **Elasticsearch**: http://localhost:9200
+- **Kibana**: http://localhost:5601
+- **Redis**: localhost:6379
+
+### 6. სისტემის გამორთვა
+
+\`\`\`bash
+docker-compose down
+\`\`\`
+
+მონაცემების სრულად წაშლა (ყველა volume):
+
+\`\`\`bash
+docker-compose down -v
+\`\`\`
+
+## როგორ შევცვალოთ X (ჩანაწერების რაოდენობა) და Y (სიჩქარე წუთში)
+
+### 1. Default მნიშვნელობების შეცვლა
+
+\`.env\` ფაილში შეცვალეთ:
+
+\`\`\`bash
+
+# X - ჩანაწერების რაოდენობა (default: 100)
+
+DEFAULT_X_RECORDS=100
+
+# Y - ჩანაწერების რაოდენობა წუთში (default: 60)
+
+DEFAULT_Y_RATE_PER_MINUTE=60
+\`\`\`
+
+შემდეგ გადაატვირთეთ სერვისები:
+
+\`\`\`bash
+docker-compose restart api-gateway
+\`\`\`
+
+### 2. Frontend-ის საშუალებით (რეკომენდირებული)
+
+1. გახსენით browser-ში http://localhost:4200
+2. "New Job" ფორმაში შეიყვანეთ:
+   - **Total Records (X)**: ჩანაწერების რაოდენობა (მაგ: 1000)
+   - **Records Per Minute (Y)**: სიჩქარე (მაგ: 120)
+3. დააჭირეთ "Start Job" ღილაკს
+
+არსებული Job-ის სიჩქარის შეცვლისთვის Dashboard-ზე დააჭირეთ სასურველ Jobs მის დეტალურ გვერდზე გადასასვლელად. "Update Processing Speed" სექციაში შეიყვანეთ ახალი სიჩქარე. დააჭირეთ "Update Speed" ღილაკს.
+
+შეგიძლიათ ერთდროულად რამდენიმე სამუშაო (Job) გაუშვათ. თითოეული მათგანი დამოუკიდებლად დამუშავდება და გამოჩნდება Dashboard-ზე.
+
+### 3. API-ს საშუალებით (curl)
+
+ახალი job-ის შექმნა:
+
+\`\`\`bash
+curl -X POST http://localhost:3000/api/jobs \\
+-H "Content-Type: application/json" \\
+-d '{
+"totalRecords": 1000,
+"recordsPerMinute": 120
+}'
+\`\`\`
+
+არსებული job-ის სიჩქარის შეცვლა:
+
+\`\`\`bash
+curl -X PATCH http://localhost:3000/api/jobs/{jobId} \\
+-H "Content-Type: application/json" \\
+-d '{
+"recordsPerMinute": 200
+}'
+\`\`\`
+
+# როგორ დავაკვირდეთ მონაცემების მიმოცვლას
+
+სისტემის მუშაობის შესამოწმებლად და იმის სანახავად, თუ როგორ მოძრაობს მონაცემები კომპონენტებს შორის, შეგიძლიათ გამოიყენოთ RabbitMQ-ს, Kibana-სა (Elasticsearch-ისთვის) და Redis-ის UI ინსტრუმენტები.
+
+1. RabbitMQ-ში დაკვირვება
+
+მისამართი: http://localhost:15672 (user: admin, pass: admin)
+
+RabbitMQ-ს მართვის პანელი გაძლევთ საშუალებას, რეალურ დროში დააკვირდეთ შეტყობინებების ნაკადს.
+
+    Queues (რიგები): გადადით "Queues" ტაბზე. აქ ნახავთ ორ მთავარ რიგს:
+
+        job_queue: სადაც api-gateway-დან იგზავნება საწყისი ბრძანება სამუშაოს შექმნის შესახებ.
+
+        record_processing_queue: სადაც scheduler-service-ი აგზავნის ცალკეულ ჩანაწერებს დასამუშავებლად.
+
+    დამუშავების სიჩქარე: აირჩიეთ record_processing_queue. გვერდის ბოლოში, გრაფიკებზე, თქვენ შეგიძლიათ დააკვირდეთ "Message rates" სექციას. "Deliver (get)" გრაფიკი გიჩვენებთ, რა სიჩქარით ამუშავებენ Worker-ები ჩანაწერებს წამში. ეს არის თქვენ მიერ მითითებული Y პარამეტრის რეალური ასახვა.
+
+2. Elasticsearch-ში დაკვირვება (Kibana-ს საშუალებით)
+
+მისამართი: http://localhost:5601
+
+Kibana არის UI Elasticsearch-ისთვის, სადაც შეგიძლიათ ნახოთ ყველა შენახული (დამუშავებული) ჩანაწერი.
+
+    Data View-ს შექმნა:
+
+        გახსენით მენიუ (მარცხენა ზედა კუთხე) და გადადით Analytics -> Discover.
+
+        თუ პირველად შედიხართ, დააჭირეთ "Create data view".
+
+        Index pattern ველში ჩაწერეთ processed-records.
+
+        Timestamp field ველში აირჩიეთ processedAt.
+
+        დააჭირეთ "Create data view".
+
+    მონაცემების ნახვა:
+
+        Data View-ს შექმნის შემდეგ, თქვენ დაინახავთ ყველა დამუშავებული ჩანაწერის სიას რეალურ დროში.
+
+        დააჭირეთ "Refresh" ღილაკს, რათა განაახლოთ სია და ნახოთ ახლად დამატებული ჩანაწერები. თითოეული ჩანაწერის გახსნით შეგიძლიათ დეტალური ინფორმაციის ნახვა (რომელმა Worker-მა დაამუშავა, რა დრო დასჭირდა და ა.შ.).
+
+3. Redis-ში დაკვირვება
+
+Redis-ში მონაცემების სანახავად რეკომენდირებულია გრაფიკული ხელსაწყოს (მაგ. RedisInsight) გამოყენება.
+
+    დაკავშირება: დაუკავშირდით თქვენს ლოკალურ Redis-ს (localhost:6379).
+
+    Key Browser: გახსენით Key Browser.
+
+    დაკვირვება: აქ შეგიძლიათ რეალურ დროში დააკვირდეთ:
+
+        job:{jobId}:config და job:{jobId}:processedCount გასაღებებს, რომ ნახოთ სამუშაოს მიმდინარე სტატუსი და დამუშავებული ჩანაწერების რაოდენობა.
+
+        scheduled_records გასაღებს (რომელიც არის Sorted Set). აქ ნახავთ, თუ როგორ ამატებს scheduler-service-ი ჩანაწერებს მომავლის დროის ნიშნულებით და როგორ ქრება ისინი სიიდან, როგორც კი მათი დამუშავების დრო მოვა.
+
+# რა ტესტები ჩავატაროთ შედეგის შესამოწმებლად
+
+## 1. ფუნქციონალურობის ტესტები
+
+### ტესტი #1: Job-ის შექმნა და დამუშავება
+
+\`\`\`bash
+
+#### Job-ის შექმნა
+
+curl -X POST http://localhost:3000/api/jobs \\
+-H "Content-Type: application/json" \\
+-d '{"totalRecords": 100, "recordsPerMinute": 60}'
+
+პასუხში მიიღებთ jobId-ს, მაგალითად:
+
+{"jobId": "123e4567-e89b-12d3-a456-426614174000", ...}
+
+#### Job-ის სტატუსის შემოწმება
+
+curl http://localhost:3000/api/jobs/{jobId}/status
+\`\`\`
+
+**მოსალოდნელი შედეგი**: სტატუსი უნდა იყოს \`processing\`, შემდეგ \`completed\`
+
+### ტესტი #2: სიჩქარის შეცვლა რეალურ დროში
+
+\`\`\`bash
+
+####Job-ის შექმნა ნელი სიჩქარით
+
+curl -X POST http://localhost:3000/api/jobs \\
+-H "Content-Type: application/json" \\
+-d '{"totalRecords": 500, "recordsPerMinute": 30}'
+
+#### 5 წამის შემდეგ, გაზარდეთ სიჩქარე
+
+curl -X PATCH http://localhost:3000/api/jobs/{jobId} \\
+-H "Content-Type: application/json" \\
+-d '{"recordsPerMinute": 300}'
+\`\`\`
+
+**მოსალოდნელი შედეგი**: პროგრესი უნდა დაჩქარდეს
+
+## 2. Crash Tests
+
+ამ ტესტების მიზანია იმის დემონსტრირება, რომ სისტემა მდგრადია, შეუძლია ავტომატურად აღდგეს და არ კარგავს მონაცემებს რომელიმე საკვანძო კომპონენტის მოულოდნელი გათიშვისას. ტესტირების ზოგადი პროცესი ყველა სერვისისთვის იდენტურია:
+
+1. დაიწყეთ ახალი სამუშაო (Job).
+2. სანამ პროცესი მიმდინარეობს, ტერმინალიდან მომენტალურად გააჩერეთ სასურველი კონტეინერი ბრძანებით: docker compose stop -t 0 service_name.
+3. დააკვირდით მოსალოდნელ შეფერხებას.
+4. ხელახლა ჩართეთ კონტეინერი: docker compose start service_name.
+5. დარწმუნდით, რომ სისტემამ მუშაობა ავტომატურად განაახლა და სამუშაო კორექტულად დაასრულა.
+
+### Worker სერვისები (worker-service)
+
+    გაჩერება: docker compose stop -t 0 worker-service-1 worker-service-2
+
+    დაკვირვება: Frontend-ზე პროგრესი ჩერდება. RabbitMQ-ს record_processing_queue-ში გროვდება დაუმუშავებელი შეტყობინებები.
+
+    აღდგენა: ჩართვის შემდეგ, Worker-ები მომენტალურად იწყებენ დაგროვილი შეტყობინებების დამუშავებას, პროცესი გრძელდება და არცერთი ჩანაწერი არ იკარგება (Elasticsearch-ში შეიძლება გადამოწმება)
+
+### Redis
+
+    გაჩერება: docker compose stop -t 0 redis
+
+    დაკვირვება: scheduler-service ვეღარ უკავშირდება Redis-ს და წყვეტს ახალი ჩანაწერების RabbitMQ-ში გაგზავნას. სერვისების ლოგებში ჩნდება კავშირის შეცდომები.
+
+    აღდგენა: ჩართვის შემდეგ, სერვისები ავტომატურად აღადგენენ კავშირს, Scheduler განაახლებს მუშაობას და პროცესი გრძელდება.
+
+### RabbitMQ
+
+    გაჩერება: docker compose stop -t 0 rabbitmq
+
+    დაკვირვება: ჩანაწერების მიმოცვლა სრულად ჩერდება. როგორც scheduler-service, ისე worker-service კარგავს კავშირს და ლოგებში წერს შეცდომებს.
+
+    აღდგენა: ჩართვის შემდეგ, ყველა სერვისი აღადგენს კავშირს, შეტყობინებების ნაკადი განახლდება და სისტემა მუშაობას აგრძელებს.
+
+### API Gateway (api-gateway)
+
+    გაჩერება: docker compose stop -t 0 api-gateway
+
+    დაკვირვება: Frontend-იდან შეუძლებელი ხდება ახალი სამუშაოს შექმნა ან არსებულის სტატუსის განახლება. ფონურ რეჟიმში დაწყებული პროცესები კი გრძელდება.
+
+    აღდგენა: ჩართვის შემდეგ, Frontend-ი კვლავ ფუნქციონალური ხდება. გვერდის განახლებისას გამოჩნდება იმ სამუშაოების აქტუალური პროგრესი, რომლებიც მუშაობდა.

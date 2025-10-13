@@ -51,7 +51,9 @@ export class JobCreateComponent {
           });
 
           // Navigate to detailed jobs page
-          this.router.navigate([`/job/${response.jobId}`]);
+          setTimeout(() => {
+            this.router.navigate([`/job/${response.jobId}`]);
+          }, 500);
         },
         error: (err) => {
           console.error('Error creating job:', err);
@@ -59,7 +61,7 @@ export class JobCreateComponent {
           this.isSubmitting = false;
         },
         complete: () => {
-          this.isSubmitting = false;
+          // this.isSubmitting = false;
         },
       });
   }
