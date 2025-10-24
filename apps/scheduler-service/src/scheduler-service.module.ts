@@ -20,6 +20,8 @@ import { RABBITMQ_URL } from 'libs/constants';
           queue: 'record_processing_queue',
           queueOptions: {
             durable: true,
+            deadLetterExchange: 'record_processing_retry_exchange',
+            deadLetterRoutingKey: 'record_processing_retry',
           },
         },
       },

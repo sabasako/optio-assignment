@@ -33,19 +33,36 @@ export class RecordConsumerController {
         `Error processing record ${data.jobId}:${data.recordId}: ${error.message}`,
       );
 
-      // This logic tries to requeue once, if it still fails, then discards message
-      const redelivered = originalMsg.fields.redelivered;
+      const xDeath = originalMsg.properties.headers?.['x-death'];
+      const retryCount = xDeath?.[0]?.count || 0;
 
-      if (redelivered) {
+      const MAX_RETRIES = 10;
+
+      if (retryCount >= MAX_RETRIES) {
+        this.logger.error(
+          `Record ${data.jobId}:${data.recordId} failed after ${retryCount} retries, sending to DLQ`,
+        );
+
+        // publishes to DLQ (we can't use nack because it would send to retry queue again)
+        channel.sendToQueue('record_processing_dlq', originalMsg.content, {
+          persistent: true,
+          headers: {
+            ...originalMsg.properties.headers,
+            'x-original-exchange': originalMsg.fields.exchange,
+            'x-original-routing-key': originalMsg.fields.routingKey,
+            'x-failed-reason': error.message,
+            'x-failed-at': new Date().toISOString(),
+          },
+        });
+
+        // ack the original message so it's removed from the main queue
+        channel.ack(originalMsg);
+      } else {
+        // Send to retry queue (DLE with TTL)
         this.logger.warn(
-          `Record ${data.jobId}:${data.recordId} failed after retry, sending to DLQ`,
+          `Record ${data.jobId}:${data.recordId} failed (retry ${retryCount + 1}/${MAX_RETRIES}), sending to retry queue`,
         );
         channel.nack(originalMsg, false, false);
-      } else {
-        this.logger.warn(
-          `Record ${data.jobId}:${data.recordId} failed, requeueing for retry`,
-        );
-        channel.nack(originalMsg, false, true);
       }
     }
   }

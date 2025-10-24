@@ -6,7 +6,7 @@ import { RABBITMQ_URL } from 'libs/constants';
 
 async function bootstrap() {
   const logger = new Logger('WorkerService');
-  
+
   const app = await NestFactory.create(WorkerServiceModule);
 
   app.connectMicroservice<MicroserviceOptions>({
@@ -18,6 +18,8 @@ async function bootstrap() {
       prefetchCount: 10, // Process up to 10 messages concurrently per worker
       queueOptions: {
         durable: true,
+        deadLetterExchange: 'record_processing_retry_exchange',
+        deadLetterRoutingKey: 'record_processing_retry',
       },
     },
   });
